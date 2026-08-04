@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineStream - Playlist Dinâmica</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #0f0f0f;
+            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #e50914;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+
+        .cinema-container {
+            width: 100%;
+            max-width: 900px;
+            background: #181818;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        }
+
+        .player-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* Proporção 16:9 */
+            height: 0;
+            overflow: hidden;
+            border-radius: 8px;
+            background: #000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .player-wrapper iframe, .player-wrapper div {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls-panel {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .status-bar {
+            text-align: center;
+            font-size: 0.95rem;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .inputs-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* Scrollbar customizada */
+        .inputs-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .inputs-container::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background-color: #252525;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #e50914;
+        }
+
+        .btn-remove {
+            background-color: #333;
+            color: #ff4d4d;
+            border: none;
+            border-radius: 6px;
+            padding: 0 15px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .btn-remove:hover {
+            background-color: #444;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button.action-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        button.action-btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-add {
+            background-color: #2e7d32;
+            color: white;
+        }
+        .btn-add:hover { background-color: #1b5e20; }
+
+        .btn-play {
+            background-color: #e50914;
+            color: white;
+        }
+        .btn-play:hover { background-color: #b80710; }
+
+        .btn-next {
+            background-color: #333;
+            color: white;
+        }
+        .btn-next:hover { background-color: #444; }
+    </style>
+</head>
+<body>
+
+    <h1>🎬 CineStream</h1>
+
+    <div class="cinema-container">
+        <div class="player-wrapper">
+            <div id="player"></div>
+        </div>
+
+        <div class="controls-panel">
+            <div class="status-bar" id="status">Adicione seus links abaixo e clique em "Iniciar Cinema"</div>
+
+            <div class="inputs-container" id="inputsContainer">
+                </div>
+
+            <button class="action-btn btn-add" onclick="addInput()">➕ Adicionar Mais Um Vídeo</button>
+
+            <div class="button-group">
+                <button class="action-btn btn-play" onclick="startPlaylist()">▶ Iniciar Cinema</button>
+                <button class="action-btn btn-next" onclick="nextVideo()">⏭ Próximo Vídeo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let player;
+        let playlist = [];
+        let currentIndex = 0;
+
+        // Cria novos campos de entrada
+        function addInput(value = '') {
+            const container = document.getElementById('inputsContainer');
+            const index = container.children.length + 1;
+            
+            const div = document.createElement('div');
+            div.className = 'input-row';
+            div.innerHTML = `
+                <input type="text" class="video-url" placeholder="URL do Vídeo ${index} (Ex: https://www.youtube.com/watch?v=...)" value="${value}">
+                <button class="btn-remove" title="Remover vídeo" onclick="removeInput(this)">✖</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeInput(btn) {
+            const container = document.getElementById('inputsContainer');
+            if (container.children.length > 1) {
+                btn.parentElement.remove();
+            } else {
+                alert('Você precisa ter pelo menos um campo de vídeo!');
+            }
+        }
+
+        // Adiciona 2 campos por padrão ao carregar
+        addInput('https://www.youtube.com/watch?v=L_LUpnjgPso'); // Vídeo demonstrativo (Big Buck Bunny)
+        addInput('');
+
+        // Extrai o ID de 11 caracteres de qualquer formato de link do YouTube
+        function extractVideoID(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        // Inicializa a API do YouTube
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                videoId: '',
+                playerVars: {
+                    'autoplay': 1,
+                    'controls': 1,
+                    'rel': 0,
+                    'enablejsapi': 1,
+                    'origin': window.location.origin
+                },
+                events: {
+                    'onStateChange': onPlayerStateChange,
+                    'onError': onPlayerError
+                }
+            });
+        }
+
+        function startPlaylist() {
+            const inputs = document.querySelectorAll('.video-url');
+            playlist = [];
+
+            inputs.forEach(input => {
+                const url = input.value.trim();
+                if (url) {
+                    const id = extractVideoID(url);
+                    if (id) playlist.push(id);
+                }
+            });
+
+            if (playlist.length === 0) {
+                alert('Por favor, insira pelo menos um link válido do YouTube.');
+                return;
+            }
+
+            currentIndex = 0;
+            playCurrentVideo();
+        }
+
+        function playCurrentVideo() {
+            if (playlist.length === 0) return;
+
+            const videoId = playlist[currentIndex];
+            player.loadVideoById(videoId);
+            
+            document.getElementById('status').innerText = 
+                `Exibindo vídeo ${currentIndex + 1} de ${playlist.length}`;
+        }
+
+        function onPlayerStateChange(event) {
+            // Avança para o próximo vídeo quando o atual termina
+            if (event.data === YT.PlayerState.ENDED) {
+                nextVideo();
+            }
+        }
+
+        function onPlayerError(event) {
+            // Se der erro 150/153 (vídeo bloqueado para exibição externa), pula para o próximo
+            console.warn('Erro ao carregar o vídeo. Código:', event.data);
+            document.getElementById('status').innerText = `O vídeo atual não permite reprodução externa. Pulando...`;
+            setTimeout(() => {
+                nextVideo();
+            }, 2000);
+        }
+
+        function nextVideo() {
+            if (playlist.length === 0) return;
+            // Loop infinito da playlist
+            currentIndex = (currentIndex + 1) % playlist.length;
+            playCurrentVideo();
+        }
+
+        // Carrega o SDK do YouTube
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    </script>
+
+</body>
+</html>
